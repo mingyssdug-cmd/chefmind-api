@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+  <title>厨思 · 简易菜谱</title>
+  <style>
+    /* 全局重置 & 字体 */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+    }
+
+    body {
+      background: #faf9f8;
+      color: #1e1e1e;
+      padding: 16px 12px 32px;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* 移动端容器 */
+    .app {
+      max-width: 600px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    /* 头部 */
+    .header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .header h1 {
+      font-size: 1.8rem;
+      font-weight: 600;
+      letter-spacing: -0.5px;
+      color: #2d2a24;
+    }
+
+    .header .sub {
+      font-size: 0.85rem;
+      color: #9b8f84;
+      background: #f0ebe6;
+      padding: 4px 10px;
+      border-radius: 30px;
+    }
+
+    /* 搜索条 */
+    .search-section {
+      margin-bottom: 16px;
+    }
+
+    .search-box {
+      display: flex;
+      align-items: center;
+      background: white;
+      border-radius: 40px;
+      padding: 4px 4px 4px 18px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02), 0 0 0 1px rgba(0, 0, 0, 0.02);
+      transition: box-shadow 0.2s;
+    }
+
+    .search-box:focus-within {
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.04), 0 0 0 1px #c7b9ad;
+    }
+
+    .search-box input {
+      flex: 1;
+      border: none;
+      outline: none;
+      font-size: 0.95rem;
+      padding: 12px 0;
+      background: transparent;
+      color: #1e1e1e;
+      min-width: 0;
+    }
+
+    .search-box input::placeholder {
+      color: #b8aaa0;
+      font-weight: 300;
+    }
+
+    .search-box button {
+      background: #2d2a24;
+      color: white;
+      border: none;
+      border-radius: 40px;
+      padding: 10px 22px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+      white-space: nowrap;
+    }
+
+    .search-box button:active {
+      background: #3f3a33;
+      transform: scale(0.97);
+    }
+
+    /* 菜系筛选 横滑 */
+    .category-scroll {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 4px 0 12px;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+
+    .category-scroll::-webkit-scrollbar {
+      display: none;
+    }
+
+    .cat-btn {
+      background: white;
+      border: none;
+      border-radius: 30px;
+      padding: 8px 18px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: #5e554c;
+      white-space: nowrap;
+      cursor: pointer;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.02), 0 0 0 1px rgba(0, 0, 0, 0.02);
+      transition: all 0.15s;
+    }
+
+    .cat-btn.active {
+      background: #2d2a24;
+      color: white;
+      box-shadow: 0 4px 10px rgba(45, 42, 36, 0.15);
+    }
+
+    .cat-btn:active {
+      transform: scale(0.96);
+    }
+
+    /* 主内容区 */
+    .recipe-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      margin-top: 8px;
+    }
+
+    /* 菜谱卡片 */
+    .recipe-card {
+      background: white;
+      border-radius: 22px;
+      padding: 18px 16px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02), 0 0 0 1px rgba(0, 0, 0, 0.02);
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.1s, box-shadow 0.2s;
+      cursor: default;
+    }
+
+    .recipe-card:active {
+      transform: scale(0.995);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .recipe-name {
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: #24211d;
+      line-height: 1.3;
+      word-break: break-word;
+      flex: 1;
+    }
+
+    .category-tag {
+      background: #f2ede8;
+      color: #6b5e53;
+      font-size: 0.7rem;
+      font-weight: 500;
+      padding: 4px 10px;
+      border-radius: 30px;
+      white-space: nowrap;
+      align-self: center;
+    }
+
+    .recipe-desc {
+      font-size: 0.85rem;
+      color: #7d7268;
+      line-height: 1.5;
+      margin-top: 10px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      word-break: break-word;
+    }
+
+    .image-placeholder {
+      width: 100%;
+      height: 120px;
+      background: #f0ebe6;
+      border-radius: 16px;
+      margin-top: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #b8aaa0;
+      font-size: 0.8rem;
+      font-weight: 400;
+      letter-spacing: 0.3px;
+      background-image: repeating-linear-gradient(45deg, #f3efea 0px, #f3efea 8px, #eae4dd 8px, #eae4dd 16px);
+      background-size: 16px 16px;
+      border: 1px solid #ece6df;
+    }
+
+    /* 分页信息 & 加载状态 */
+    .pagination-info {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      margin-top: 22px;
+      font-size: 0.8rem;
+      color: #9b8f84;
+      flex-wrap: wrap;
+    }
+
+    .page-indicator {
+      background: white;
+      padding: 6px 18px;
+      border-radius: 30px;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.02);
+      font-weight: 500;
+      color: #2d2a24;
+    }
+
+    .pagination-buttons {
+      display: flex;
+      gap: 8px;
+    }
+
+    .page-btn {
+      background: white;
+      border: none;
+      border-radius: 30px;
+      padding: 8px 20px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: #2d2a24;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.02);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .page-btn:active {
+      background: #eae4dd;
+    }
+
+    .page-btn:disabled {
+      opacity: 0.4;
+      pointer-events: none;
+    }
+
+    /* 错误 & 空态 & 加载 */
+    .status-message {
+      text-align: center;
+      padding: 48px 16px;
+      color: #9b8f84;
+      font-size: 0.95rem;
+      background: white;
+      border-radius: 22px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+      margin-top: 20px;
+    }
+
+    .status-message.error {
+      color: #b33e3e;
+      background: #fff5f5;
+    }
+
+    /* 小屏适配 */
+    @media (max-width: 400px) {
+      .recipe-name {
+        font-size: 1rem;
+      }
+      .search-box button {
+        padding: 10px 16px;
+        font-size: 0.8rem;
+      }
+      .header h1 {
+        font-size: 1.5rem;
+      }
+    }
+
+    /* 工具类 */
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- 头部 -->
+    <header class="header">
+      <h1>厨思 · 菜谱</h1>
+      <span class="sub">河南风味</span>
+    </header>
+
+    <!-- 搜索 -->
+    <div class="search-section">
+      <div class="search-box">
+        <input type="text" id="keywordInput" placeholder="搜索菜名，如 熊掌" autocomplete="off">
+        <button id="searchBtn">搜索</button>
+      </div>
+    </div>
+
+    <!-- 菜系筛选横滑 -->
+    <div class="category-scroll" id="categoryContainer">
+      <!-- 动态渲染按钮，同时包含 "全部" 和 菜系列表 -->
+      <button class="cat-btn active" data-category-id="all">全部</button>
+      <!-- 由 JS 填充菜系按钮 -->
+    </div>
+
+    <!-- 主列表区 -->
+    <div id="recipeList" class="recipe-grid">
+      <!-- 动态渲染卡片 -->
+    </div>
+
+    <!-- 分页 / 状态栏（固定在底部感） -->
+    <div class="pagination-info" id="paginationBar">
+      <div class="page-indicator" id="pageIndicator">第 1 页</div>
+      <div class="pagination-buttons">
+        <button class="page-btn" id="prevPageBtn" disabled>上一页</button>
+        <button class="page-btn" id="nextPageBtn">下一页</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      // ---------- 配置 ----------
+      const API_BASE = 'http://127.0.0.1:8000/api/v1'; // 替换为实际 host
+      const PAGE_SIZE = 10; // 只展示10个菜谱
+      const DEFAULT_PAGE = 1;
+
+      // ---------- 状态 ----------
+      let state = {
+        categories: [],            // 原始菜系
+        currentCategoryId: 'all',  // 'all' 或 number
+        keyword: '',
+        page: DEFAULT_PAGE,
+        total: 0,
+        pageSize: PAGE_SIZE,
+        loading: false,
+        error: null
+      };
+
+      // ---------- DOM 元素 ----------
+      const categoryContainer = document.getElementById('categoryContainer');
+      const keywordInput = document.getElementById('keywordInput');
+      const searchBtn = document.getElementById('searchBtn');
+      const recipeListEl = document.getElementById('recipeList');
+      const pageIndicator = document.getElementById('pageIndicator');
+      const prevBtn = document.getElementById('prevPageBtn');
+      const nextBtn = document.getElementById('nextPageBtn');
+      const paginationBar = document.getElementById('paginationBar');
+
+      // ---------- 工具函数 ----------
+      // 防抖 (用于搜索建议，但这里我们点击按钮，不过 input 可能回车)
+      function debounce(fn, delay) {
+        let timer;
+        return function(...args) {
+          clearTimeout(timer);
+          timer = setTimeout(() => fn.apply(this, args), delay);
+        };
+      }
+
+      // 显示错误信息
+      function showError(message) {
+        state.error = message;
+        renderRecipeList();
+        // 同时清空分页可用状态
+        updatePagination();
+      }
+
+      // 清空错误
+      function clearError() {
+        state.error = null;
+      }
+
+      // 获取总页数
+      function getTotalPages() {
+        if (state.total === 0) return 1;
+        return Math.ceil(state.total / state.pageSize);
+      }
+
+      // ---------- 渲染分类按钮 ----------
+      function renderCategories() {
+        // 保留"全部"按钮 (第一个)
+        const allBtn = categoryContainer.querySelector('[data-category-id="all"]');
+        if (!allBtn) {
+          // 若丢失则重建
+          categoryContainer.innerHTML = '';
+          const newAllBtn = document.createElement('button');
+          newAllBtn.className = 'cat-btn active';
+          newAllBtn.dataset.categoryId = 'all';
+          newAllBtn.textContent = '全部';
+          categoryContainer.appendChild(newAllBtn);
+        }
+        // 移除旧的菜系按钮 (除了全部)
+        const dynamicBtns = categoryContainer.querySelectorAll('.cat-btn:not([data-category-id="all"])');
+        dynamicBtns.forEach(btn => btn.remove());
+
+        // 添加菜系
+        state.categories.forEach(cat => {
+          const btn = document.createElement('button');
+          btn.className = 'cat-btn';
+          btn.dataset.categoryId = cat.id;
+          btn.textContent = cat.name;
+          categoryContainer.appendChild(btn);
+        });
+
+        // 绑定事件 (委托也可，但简单重新绑定)
+        document.querySelectorAll('.cat-btn').forEach(btn => {
+          btn.removeEventListener('click', handleCategoryClick);
+          btn.addEventListener('click', handleCategoryClick);
+        });
+
+        // 高亮当前选中分类
+        highlightActiveCategory();
+      }
+
+      function highlightActiveCategory() {
+        document.querySelectorAll('.cat-btn').forEach(btn => {
+          const id = btn.dataset.categoryId;
+          if (state.currentCategoryId === 'all' && id === 'all') {
+            btn.classList.add('active');
+          } else if (id != 'all' && Number(id) === state.currentCategoryId) {
+            btn.classList.add('active');
+          } else {
+            btn.classList.remove('active');
+          }
+        });
+      }
+
+      // 菜系点击
+      function handleCategoryClick(e) {
+        const catId = e.currentTarget.dataset.categoryId;
+        if (catId === 'all') {
+          state.currentCategoryId = 'all';
+        } else {
+          state.currentCategoryId = Number(catId);
+        }
+        state.page = 1; // 重置页码
+        highlightActiveCategory();
+        fetchRecipes();
+      }
+
+      // ---------- 渲染菜谱列表 ----------
+      function renderRecipeList() {
+        if (state.loading) {
+          recipeListEl.innerHTML = `<div class="status-message">加载中…</div>`;
+          paginationBar.classList.add('hidden');
+          return;
+        }
+
+        if (state.error) {
+          recipeListEl.innerHTML = `<div class="status-message error">${state.error}</div>`;
+          paginationBar.classList.remove('hidden');
+          updatePagination();
+          return;
+        }
+
+        const recipes = state.recipes || [];
+        if (recipes.length === 0) {
+          recipeListEl.innerHTML = `<div class="status-message">🍽️ 没有找到菜谱，换个词试试</div>`;
+          paginationBar.classList.remove('hidden');
+          updatePagination();
+          return;
+        }
+
+        // 构建卡片
+        const cardsHtml = recipes.map(recipe => {
+          const desc = recipe.description ? escapeHtml(recipe.description) : '暂无描述';
+          const imgHtml = recipe.image_url
+            ? `<img src="${escapeHtml(recipe.image_url)}" alt="${escapeHtml(recipe.name)}" style="width:100%;height:120px;object-fit:cover;border-radius:16px;margin-top:12px;" loading="lazy">`
+            : `<div class="image-placeholder">暂无图片</div>`;
+          return `
+            <div class="recipe-card" data-id="${recipe.id}">
+              <div class="card-header">
+                <span class="recipe-name">${escapeHtml(recipe.name)}</span>
+                <span class="category-tag">${escapeHtml(recipe.category_name || '')}</span>
+              </div>
+              <p class="recipe-desc">${desc}</p>
+              ${imgHtml}
+            </div>
+          `;
+        }).join('');
+
+        recipeListEl.innerHTML = cardsHtml;
+        paginationBar.classList.remove('hidden');
+        updatePagination();
+      }
+
+      // 简单转义，防止 XSS
+      function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      // 更新分页控件状态
+      function updatePagination() {
+        const totalPages = getTotalPages();
+        const currentPage = state.page;
+
+        pageIndicator.textContent = `第 ${currentPage} / ${totalPages} 页`;
+
+        if (currentPage <= 1) {
+          prevBtn.disabled = true;
+        } else {
+          prevBtn.disabled = false;
+        }
+
+        if (currentPage >= totalPages || totalPages === 0) {
+          nextBtn.disabled = true;
+        } else {
+          nextBtn.disabled = false;
+        }
+      }
+
+      // ---------- API 请求 ----------
+      async function fetchCategories() {
+        try {
+          const res = await fetch(`${API_BASE}/categories`);
+          if (!res.ok) {
+            throw new Error(`获取菜系失败 (${res.status})`);
+          }
+          const data = await res.json();
+          state.categories = data;
+          renderCategories();
+        } catch (err) {
+          console.warn('菜系加载失败，使用默认数据', err);
+          // 使用文档中的默认5个菜系
+          state.categories = [
+            { id: 1, name: '山珍海味菜', province: '河南省' },
+            { id: 2, name: '肉菜', province: '河南省' },
+            { id: 3, name: '禽蛋菜', province: '河南省' },
+            { id: 4, name: '水产菜', province: '河南省' },
+            { id: 5, name: '植物菜', province: '河南省' }
+          ];
+          renderCategories();
+        }
+      }
+
+      async function fetchRecipes() {
+        // 构建 query
+        const params = new URLSearchParams();
+        if (state.currentCategoryId !== 'all') {
+          params.append('category_id', state.currentCategoryId);
+        }
+        if (state.keyword.trim() !== '') {
+          params.append('keyword', state.keyword.trim());
+        }
+        params.append('page', state.page);
+        params.append('page_size', state.pageSize);
+
+        state.loading = true;
+        clearError();
+        renderRecipeList(); // 显示加载中
+
+        try {
+          const res = await fetch(`${API_BASE}/recipes?${params.toString()}`);
+          if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            throw new Error(errorData.detail || `请求失败 (${res.status})`);
+          }
+          const data = await res.json();
+          state.total = data.total;
+          state.page = data.page;
+          state.pageSize = data.page_size;
+          state.recipes = data.items;
+          state.loading = false;
+          state.error = null;
+          renderRecipeList();
+        } catch (err) {
+          state.loading = false;
+          state.error = err.message || '网络异常，请稍后重试';
+          state.recipes = [];
+          renderRecipeList();
+        }
+      }
+
+      // ---------- 搜索事件 ----------
+      function performSearch() {
+        state.keyword = keywordInput.value;
+        state.page = 1; // 重置页码
+        fetchRecipes();
+      }
+
+      // 回车搜索
+      keywordInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          performSearch();
+        }
+      });
+      searchBtn.addEventListener('click', performSearch);
+
+      // 防抖搜索 (输入时可选，但为了简单不实时搜索，仅按钮/回车)
+      // 可加一个延时搜索但容易干扰，保留简单
+
+      // 分页按钮
+      prevBtn.addEventListener('click', () => {
+        if (state.page > 1) {
+          state.page -= 1;
+          fetchRecipes();
+        }
+      });
+
+      nextBtn.addEventListener('click', () => {
+        const totalPages = getTotalPages();
+        if (state.page < totalPages) {
+          state.page += 1;
+          fetchRecipes();
+        }
+      });
+
+      // ---------- 初始化 ----------
+      async function init() {
+        await fetchCategories();
+        // 默认拉取第一页数据 (菜系全部，keyword空)
+        state.currentCategoryId = 'all';
+        state.keyword = '';
+        state.page = 1;
+        fetchRecipes();
+      }
+
+      init();
+
+      // 备注：若后端需要真实地址，请修改 API_BASE；演示时可能因为跨域或host问题失败，但页面结构完整。
+      // 也可使用 mock 数据后备，但此处按API文档设计
+    })();
+  </script>
+</body>
+</html>
