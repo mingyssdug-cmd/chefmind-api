@@ -19,6 +19,7 @@ class RecipeListItem(BaseModel):
     id: uuid.UUID
     name: str
     category_name: str
+    province: str
     image_url: str | None
     description: str | None
 

@@ -1,8 +1,15 @@
 """
-Markdown 菜谱解析并落库（河南省）。
+Markdown 菜谱解析并落库（支持多城市、多菜系）。
+目录约定：
+    data/raw/<城市>/<任意文件名>.md
+省份由目录名推断，例如：
+    data/raw/河南/河南菜谱.md   -> 河南省
+    data/raw/北京/北京菜谱.md   -> 北京市
+    data/raw/四川/川菜.md       -> 四川省
+
 用法：
-    python -m scripts.seed_data
-    python -m scripts.seed_data data/raw/菜谱.md
+    python -m scripts.seed_data                    # 扫描 data/raw 下所有 .md
+    python -m scripts.seed_data data/raw/北京/北京菜谱.md
 """
 
 import asyncio
@@ -17,25 +24,40 @@ from app.core.database import AsyncSessionLocal, init_db
 from app.modules.recipe.models import Recipe, RecipeCategory
 
 # ============ 固定配置 ============
-PROVINCE = "河南省"
 RAW_DIR = Path("data/raw")
+DEFAULT_PROVINCE = "未知"
 
-# 五个固定菜系（H2），其余 H2 忽略
+# 城市/省份目录名 -> 正式省份名。后期加城市只在这里加一行，脚本不用动。
+PROVINCE_MAP: dict[str, str] = {
+    "河南": "河南省",
+    "北京": "北京市",
+    "四川": "四川省",
+    "广东": "广东省",
+    "山东": "山东省",
+    "江苏": "江苏省",
+    "浙江": "浙江省",
+    "湖南": "湖南省",
+    "湖北": "湖北省",
+    "陕西": "陕西省",
+    # TODO: 按需继续补
+}
+
+# 固定 6 大类菜系（H2），其余 H2 忽略
 VALID_CATEGORIES = {
     "山珍海味菜",
     "肉菜",
     "禽蛋菜",
     "水产菜",
     "植物菜",
+    "其他菜",
 }
 
-H2_RE = re.compile(r"^##\s+(.+)$", re.M)          # 菜系
-H3_RE = re.compile(r"^###\s+(.+)$", re.M)         # 菜名
+H2_RE = re.compile(r"^##\s+(.+)$", re.M)
+H3_RE = re.compile(r"^###\s+(.+)$", re.M)
 INGREDIENT_HEAD_RE = re.compile(r"^\*\*原料\*\*\s*$", re.M)
 METHOD_HEAD_RE = re.compile(r"^\*\*制法\*\*\s*$", re.M)
-SUB_HEAD_RE = re.compile(r"^\*\*(.+?)\*\*\s*$", re.M)  # 主料/配料/调料 等小标题
+SUB_HEAD_RE = re.compile(r"^\*\*(.+?)\*\*\s*$", re.M)
 
-# 原料条目：- 主料：竹荪 50g / * 配料: 火腿 20g / 主料：xxx
 ITEM_WITH_GROUP_RE = re.compile(r"^[-*·]?\s*([^：:]{1,10})[：:]\s*(.+)$")
 LIST_PREFIX_RE = re.compile(r"^[-*·]\s*")
 
@@ -44,8 +66,15 @@ def _strip_list_prefix(line: str) -> str:
     return LIST_PREFIX_RE.sub("", line).strip()
 
 
+def _infer_province(md_path: Path) -> str:
+    """从目录名/文件名推断省份。优先父目录名，其次文件名。"""
+    for key, prov in PROVINCE_MAP.items():
+        if key in md_path.parent.name or key in md_path.stem:
+            return prov
+    return DEFAULT_PROVINCE
+
+
 def _split_categories(text: str) -> list[tuple[str, str]]:
-    """返回 [(菜系名, 该菜系段落文本)]，只保留 VALID_CATEGORIES"""
     matches = list(H2_RE.finditer(text))
     result = []
     for i, m in enumerate(matches):
@@ -59,7 +88,6 @@ def _split_categories(text: str) -> list[tuple[str, str]]:
 
 
 def _split_recipes(block: str) -> list[tuple[str, str]]:
-    """返回 [(菜名, 菜谱 chunk 文本)]"""
     matches = list(H3_RE.finditer(block))
     result = []
     for i, m in enumerate(matches):
@@ -71,13 +99,6 @@ def _split_recipes(block: str) -> list[tuple[str, str]]:
 
 
 def _parse_ingredients(ing_text: str) -> list[dict]:
-    """
-    解析原料文本，输出 [{"主料": [...]}, {"配料": [...]}, {"调料": [...]}]
-    兼容三种写法：
-      A. 条目带分组前缀：- 主料：竹荪 50g
-      B. 小标题分组 + 纯条目：**主料**\\n- 竹荪 50g
-      C. 无分组纯条目：- 竹荪 50g  → 归入「原料」
-    """
     groups: dict[str, list[str]] = {}
     order: list[str] = []
 
@@ -90,10 +111,8 @@ def _parse_ingredients(ing_text: str) -> list[dict]:
             order.append(group)
         groups[group].append(item)
 
-    # 先看有没有小标题（**主料** 等单独成行）
     sub_heads = list(SUB_HEAD_RE.finditer(ing_text))
     if sub_heads:
-        # 写法 B
         for i, sh in enumerate(sub_heads):
             group = sh.group(1).strip()
             s = sh.end()
@@ -103,12 +122,10 @@ def _parse_ingredients(ing_text: str) -> list[dict]:
                 if item:
                     add(group, item)
     else:
-        # 写法 A / C：逐行解析
         for line in ing_text.splitlines():
             raw = line.strip()
             if not raw:
                 continue
-            # 跳过加粗小标题行（如 **原料** 自身已在外部截掉，这里防万一）
             if re.match(r"^\*\*.+\*\*\s*$", raw):
                 continue
             item = _strip_list_prefix(raw)
@@ -116,9 +133,7 @@ def _parse_ingredients(ing_text: str) -> list[dict]:
                 continue
             m = ITEM_WITH_GROUP_RE.match(item)
             if m:
-                group = m.group(1).strip()
-                content = m.group(2).strip()
-                add(group, content)
+                add(m.group(1).strip(), m.group(2).strip())
             else:
                 add("原料", item)
 
@@ -129,20 +144,16 @@ def _parse_chunk(chunk: str) -> dict:
     ing_head = INGREDIENT_HEAD_RE.search(chunk)
     method_head = METHOD_HEAD_RE.search(chunk)
 
-    # description：菜名行之后到 **原料** 之前
     first_nl = chunk.find("\n")
     desc_start = first_nl + 1 if first_nl != -1 else len(chunk)
     desc_end = ing_head.start() if ing_head else (method_head.start() if method_head else len(chunk))
     description = chunk[desc_start:desc_end].strip() or None
 
-    # ingredients
     ingredients: list[dict] = []
     if ing_head:
         ing_end = method_head.start() if method_head else len(chunk)
-        ing_text = chunk[ing_head.end():ing_end]
-        ingredients = _parse_ingredients(ing_text)
+        ingredients = _parse_ingredients(chunk[ing_head.end():ing_end])
 
-    # instructions
     instructions = None
     if method_head:
         instructions = chunk[method_head.end():].strip() or None
@@ -156,12 +167,15 @@ def _parse_chunk(chunk: str) -> dict:
 
 
 async def _get_or_create_category(
-    db: AsyncSession, name: str
+    db: AsyncSession, name: str, province: str
 ) -> RecipeCategory:
-    stmt = select(RecipeCategory).where(RecipeCategory.name == name)
+    stmt = select(RecipeCategory).where(
+        RecipeCategory.name == name,
+        RecipeCategory.province == province,
+    )
     category = (await db.execute(stmt)).scalar_one_or_none()
     if category is None:
-        category = RecipeCategory(name=name, province=PROVINCE)
+        category = RecipeCategory(name=name, province=province)
         db.add(category)
         await db.flush()
     return category
@@ -174,11 +188,12 @@ async def _recipe_exists(db: AsyncSession, name: str, category_id: int) -> bool:
 
 async def seed_file(db: AsyncSession, md_path: Path) -> tuple[int, int]:
     text = md_path.read_text(encoding="utf-8")
+    province = _infer_province(md_path)
     inserted = 0
     skipped = 0
 
     for cat_name, cat_block in _split_categories(text):
-        category = await _get_or_create_category(db, cat_name)
+        category = await _get_or_create_category(db, cat_name, province)
 
         for recipe_name, chunk in _split_recipes(cat_block):
             if await _recipe_exists(db, recipe_name, category.id):
@@ -202,6 +217,13 @@ async def seed_file(db: AsyncSession, md_path: Path) -> tuple[int, int]:
     return inserted, skipped
 
 
+def _discover_files() -> list[Path]:
+    """递归扫描 data/raw 下所有 .md"""
+    if not RAW_DIR.exists():
+        return []
+    return sorted(RAW_DIR.rglob("*.md"))
+
+
 async def main(paths: list[Path]) -> None:
     await init_db()
 
@@ -212,8 +234,9 @@ async def main(paths: list[Path]) -> None:
             if not p.exists():
                 print(f"[SKIP] 文件不存在: {p}")
                 continue
+            province = _infer_province(p)
             ins, skp = await seed_file(db, p)
-            print(f"[OK] {p}: 新增 {ins} 条，跳过 {skp} 条")
+            print(f"[OK] {p} (province={province}): 新增 {ins} 条，跳过 {skp} 条")
             total_inserted += ins
             total_skipped += skp
 
@@ -224,8 +247,8 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         files = [Path(a) for a in sys.argv[1:]]
     else:
-        files = sorted(RAW_DIR.glob("*.md"))
+        files = _discover_files()
         if not files:
-            print(f"未找到 {RAW_DIR}/*.md，请把 Markdown 文件放进去，或传入文件路径")
+            print(f"未找到 {RAW_DIR}/**/*.md，请把 Markdown 文件放进去")
             sys.exit(1)
     asyncio.run(main(files))

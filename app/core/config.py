@@ -11,6 +11,14 @@ class Settings(BaseSettings):
     POSTGRES_PASSWORD: str = "postgres"
     POSTGRES_DB: str = "recipe_db"
 
+    OPENAI_API_KEY: str = ""
+    OPENAI_BASE_URL: str = "https://api.openai.com/v1"
+    MODEL_NAME: str = "gpt-4o-mini"
+
+    DASHSCOPE_API_KEY: str = ""
+    EMBEDDING_MODEL: str = "text-embedding-v4"
+    EMBEDDING_DIM: int = 1024
+
     @property
     def DATABASE_URL(self) -> str:
         # 密码里若有特殊字符会被 quote_plus 转义，避免连接串解析出错

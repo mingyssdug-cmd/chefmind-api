@@ -27,7 +27,8 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 async def init_db() -> None:
     # 先确保模型被 import，metadata 才完整
-    from app.modules.recipe import models  # noqa: F401
+    from app.modules.recipe import models as recipe_models  # noqa
+    from app.modules.rag import models as rag_models  # noqa  ← 新增
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

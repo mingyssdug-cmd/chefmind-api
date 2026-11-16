@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -10,9 +10,12 @@ from app.core.database import Base
 
 class RecipeCategory(Base):
     __tablename__ = "recipe_category"
+    __table_args__ = (
+        UniqueConstraint("name", "province", name="uq_category_name_province"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(100), index=True, nullable=False)
     province: Mapped[str] = mapped_column(String(50), index=True, nullable=False)
 
     recipes: Mapped[list["Recipe"]] = relationship(
