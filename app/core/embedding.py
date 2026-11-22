@@ -1,16 +1,22 @@
+from functools import lru_cache
+
 from openai import OpenAI
 
 from app.core.config import settings
 
-_client = OpenAI(
-    api_key=settings.DASHSCOPE_API_KEY,
-    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-)
+
+@lru_cache(maxsize=1)
+def _get_client() -> OpenAI:
+    if not settings.DASHSCOPE_API_KEY:
+        raise RuntimeError("DASHSCOPE_API_KEY 未配置，无法调用向量模型")
+    return OpenAI(
+        api_key=settings.DASHSCOPE_API_KEY,
+        base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+    )
 
 
 def embed_text(text: str) -> list[float]:
-    """单条文本向量化"""
-    resp = _client.embeddings.create(
+    resp = _get_client().embeddings.create(
         model=settings.EMBEDDING_MODEL,
         input=text,
         dimensions=settings.EMBEDDING_DIM,
@@ -19,13 +25,13 @@ def embed_text(text: str) -> list[float]:
 
 
 def embed_batch(texts: list[str]) -> list[list[float]]:
-    """批量向量化（text-embedding-v4 单次最多 10 条）"""
     if not texts:
         return []
+    client = _get_client()
     results = []
     for i in range(0, len(texts), 10):
         batch = texts[i:i + 10]
-        resp = _client.embeddings.create(
+        resp = client.embeddings.create(
             model=settings.EMBEDDING_MODEL,
             input=batch,
             dimensions=settings.EMBEDDING_DIM,

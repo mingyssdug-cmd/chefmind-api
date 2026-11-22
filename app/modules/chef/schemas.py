@@ -3,7 +3,6 @@ from pydantic import BaseModel
 
 class ChatRequest(BaseModel):
     message: str
-    thread_id: str | None = None   # 预留，后期接记忆时用
 
 
 class SourceItem(BaseModel):
@@ -16,3 +15,27 @@ class ChatResponse(BaseModel):
     reply: str
     intent: str
     sources: list[SourceItem] = []
+
+
+class HistoryMessage(BaseModel):
+    role: str
+    content: str
+    ts: str | None = None
+
+
+class HistoryItem(BaseModel):
+    checkpoint_id: str
+    ts: str
+    messages: list[HistoryMessage]
+
+
+class HistoryResponse(BaseModel):
+    items: list[HistoryItem]
+    has_more: bool
+    next_before: str | None
+
+
+class DeleteHistoryResponse(BaseModel):
+    thread_id: str
+    deleted_checkpoints: int
+    message: str

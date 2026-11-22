@@ -16,6 +16,14 @@ dependencies = [
     "pgvector>=0.3.0",
     "openai>=1.50.0",
     "langchain-text-splitters>=0.3.0",
+    "psycopg-pool>=3.3.3",
+    "psycopg[binary]>=3.3.9",
+    "langgraph-checkpoint-postgres>=3.2.1",
+    "argon2-cffi>=25.1.0",
+    "pyjwt>=2.15.1",
+    "httpx>=0.28.1",
+    "email-validator>=2.4.0",
+    "python-multipart>=0.0.34",
 ]
 
 [build-system]

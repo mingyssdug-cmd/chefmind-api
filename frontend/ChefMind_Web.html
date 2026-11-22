@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>厨思 ChefMind · AI 智能菜谱</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  :root{
+    --brand:#e8623a; --brand-d:#c94d28; --ink:#2b2723; --muted:#8b8278;
+    --line:#eee7df; --bg:#faf7f2; --card:#fff; --ok:#3a9d5d; --warn:#d9a441; --bad:#d1495b;
+    --shadow:0 4px 18px rgba(0,0,0,.06);
+  }
+  body{ font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif; background:var(--bg); color:var(--ink); font-size:15px; }
+  a{ color:var(--brand); }
+  button{ font-family:inherit; cursor:pointer; }
+
+  header{ position:sticky; top:0; z-index:50; background:#fff; border-bottom:1px solid var(--line); }
+  .topbar{ max-width:1180px; margin:0 auto; height:60px; display:flex; align-items:center; gap:16px; padding:0 20px; }
+  .logo{ display:flex; align-items:center; gap:9px; font-weight:800; font-size:20px; color:var(--brand); white-space:nowrap; }
+  .logo .dot{ width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,#e8623a,#f0a04b);display:grid;place-items:center;color:#fff;font-size:17px; }
+  .logo small{ font-size:11px;color:var(--muted);font-weight:600; }
+  .nav{ display:flex; gap:6px; margin-left:8px; }
+  .nav button{ border:none;background:none;padding:9px 14px;border-radius:9px;font-size:15px;color:var(--muted);font-weight:600; }
+  .nav button.on{ background:#fdeee7;color:var(--brand-d); }
+  .spacer{ flex:1; }
+  .health{ display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);white-space:nowrap; }
+  .health i{ width:9px;height:9px;border-radius:50%;background:#cfc7bd;display:inline-block; }
+  .health i.ok{ background:var(--ok);} .health i.bad{ background:var(--bad);} .health i.warn{ background:var(--warn);} 
+  .btn{ border:none;border-radius:9px;padding:9px 15px;font-size:14px;font-weight:600;background:var(--brand);color:#fff; }
+  .btn:hover{ background:var(--brand-d);} .btn.ghost{ background:#fff;color:var(--ink);border:1px solid var(--line);} .btn.ghost:hover{ background:#f6f0e9;} 
+  .btn.sm{ padding:6px 11px;font-size:13px;} .btn.block{ width:100%; }
+  .btn[disabled]{ opacity:.55; cursor:not-allowed; }
+  .userchip{ display:flex;align-items:center;gap:8px;background:#f6f0e9;border-radius:20px;padding:5px 12px 5px 5px;font-size:13px;font-weight:600; }
+  .userchip .av{ width:26px;height:26px;border-radius:50%;background:var(--brand);color:#fff;display:grid;place-items:center;font-size:13px;}
+
+  main{ max-width:1180px; margin:0 auto; padding:22px 20px 60px; }
+  .view{ display:none; } .view.on{ display:block; }
+
+  .field{ margin-bottom:14px; }
+  .field label{ display:block;font-size:13px;color:var(--muted);margin-bottom:5px;font-weight:600; }
+  input,select,textarea{ width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:9px;font-size:14px;font-family:inherit;background:#fff;color:var(--ink); }
+  input:focus,select:focus,textarea:focus{ outline:none;border-color:var(--brand);box-shadow:0 0 0 3px #fbe6dd; }
+  .row{ display:flex;gap:10px; } .row>*{ flex:1; }
+
+  .filters{ background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;box-shadow:var(--shadow);margin-bottom:20px; }
+  .filters .f{ min-width:150px; } .filters .grow{ flex:1;min-width:220px; }
+  .tag{ display:inline-block;font-size:11px;padding:2px 8px;border-radius:6px;background:#eef3ee;color:#3a7d54;font-weight:600;margin-right:5px; }
+  .tag.p{ background:#fdeee7;color:#c94d28; }
+
+  .grid{ display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px; }
+  .rcard{ background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;cursor:pointer;transition:.15s;box-shadow:var(--shadow); }
+  .rcard:hover{ transform:translateY(-3px);border-color:#f3c9b6; }
+  .rcard .img{ height:150px;background:#f0e9e0 center/cover;display:grid;place-items:center;color:#c8bcae;font-size:30px;position:relative; }
+  .rcard .bd{ padding:12px 13px; }
+  .rcard .nm{ font-weight:700;font-size:15px;margin-bottom:6px; line-height:1.35; }
+  .rcard .ds{ font-size:12.5px;color:var(--muted);line-height:1.5;height:38px;overflow:hidden; }
+  .pager{ display:flex;justify-content:center;align-items:center;gap:12px;margin-top:22px;color:var(--muted);font-size:13px; }
+
+  .mask{ position:fixed;inset:0;background:rgba(40,30,20,.5);z-index:100;display:none;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto; }
+  .mask.on{ display:flex; }
+  .modal{ background:#fff;border-radius:16px;max-width:720px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3);animation:pop .18s; }
+  @keyframes pop{ from{ transform:translateY(12px);opacity:.6;} to{ transform:none;opacity:1;} }
+  .modal .mimg{ height:260px;background:#f0e9e0 center/cover;border-radius:16px 16px 0 0;display:grid;place-items:center;color:#c8bcae;font-size:44px; }
+  .modal .mbody{ padding:22px 26px; }
+  .modal h2{ font-size:22px;margin-bottom:8px; }
+  .modal .meta{ color:var(--muted);font-size:13px;margin-bottom:14px;display:flex;gap:10px;flex-wrap:wrap; }
+  .modal .desc{ background:#faf6f1;border-radius:10px;padding:12px 14px;font-size:14px;line-height:1.7;margin-bottom:18px;color:#5a5248; }
+  .modal h3{ font-size:15px;margin:18px 0 8px;color:var(--brand-d);display:flex;align-items:center;gap:7px; }
+  .ing{ display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px; }
+  .ing .g{ background:#f7f2ec;border-radius:10px;padding:12px 14px; }
+  .ing .g b{ font-size:13px;color:var(--brand-d);display:block;margin-bottom:7px; }
+  .ing .g li{ list-style:none;font-size:13.5px;padding:3px 0;border-bottom:1px dashed #e6dcd0; }
+  .ing .g li:last-child{ border:none; }
+  .steps p{ font-size:14px;line-height:1.8;margin-bottom:8px;white-space:pre-wrap;color:#4a4239; }
+  .mclose{ position:sticky;top:0;float:right;margin:10px;background:rgba(255,255,255,.9);border:none;border-radius:8px;width:34px;height:34px;font-size:18px;box-shadow:var(--shadow); }
+
+  .empty{ text-align:center;color:var(--muted);padding:60px 20px;font-size:14px; }
+  .empty .big{ font-size:40px;margin-bottom:10px; }
+  .skel{ padding:40px;text-align:center;color:var(--muted); }
+  .spin{ display:inline-block;width:16px;height:16px;border:2px solid #ddd;border-top-color:var(--brand);border-radius:50%;animation:sp .7s linear infinite;vertical-align:-3px;margin-right:6px; }
+  @keyframes sp{ to{ transform:rotate(360deg);} }
+
+  .chat{ display:grid;grid-template-columns:1fr 300px;gap:18px;height:calc(100vh - 130px);min-height:480px; }
+  .chatMain{ background:#fff;border:1px solid var(--line);border-radius:16px;display:flex;flex-direction:column;overflow:hidden;box-shadow:var(--shadow); }
+  .chatHead{ padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px; }
+  .chatHead b{ font-size:16px; } .chatHead .ai{ width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,#e8623a,#f0a04b);color:#fff;display:grid;place-items:center;font-size:16px; }
+  .msgs{ flex:1;overflow:auto;padding:18px;display:flex;flex-direction:column;gap:14px;background:#fbf8f4; }
+  .msg{ display:flex;gap:10px;max-width:88%; }
+  .msg.me{ align-self:flex-end;flex-direction:row-reverse; }
+  .msg .bub{ padding:11px 14px;border-radius:14px;font-size:14px;line-height:1.75;white-space:pre-wrap;word-break:break-word; }
+  .msg.ai .bub{ background:#fff;border:1px solid var(--line);border-top-left-radius:4px; }
+  .msg.me .bub{ background:var(--brand);color:#fff;border-top-right-radius:4px; }
+  .msg .ic{ width:30px;height:30px;border-radius:8px;flex:none;display:grid;place-items:center;color:#fff;font-size:14px; }
+  .msg.ai .ic{ background:linear-gradient(135deg,#e8623a,#f0a04b);} .msg.me .ic{ background:#7a6f63; }
+  .src{ margin-top:8px;padding-top:8px;border-top:1px dashed #e6dcd0;font-size:12px;color:var(--muted); }
+  .src a{ cursor:pointer;text-decoration:underline; }
+  .intent{ font-size:11px;color:#fff;background:#3a7d54;padding:1px 7px;border-radius:5px;margin-left:6px;font-weight:600; }
+  .intent.chitchat{ background:#8b8278; }
+  .chatInput{ padding:12px;border-top:1px solid var(--line);display:flex;gap:10px; }
+  .chatInput textarea{ resize:none;height:46px; }
+  .side{ background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;box-shadow:var(--shadow); }
+  .side h4{ padding:13px 16px;border-bottom:1px solid var(--line);font-size:14px;display:flex;justify-content:space-between;align-items:center; }
+  .side .list{ flex:1;overflow:auto;padding:10px; }
+  .hitem{ border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;cursor:pointer;font-size:13px; }
+  .hitem:hover{ background:#faf3ec;border-color:#f0c9b5; }
+  .hitem .t{ color:var(--muted);font-size:11px;margin-bottom:4px; }
+  .hitem .x{ color:#4a4239;white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+
+  .panel{ background:#fff;border:1px solid var(--line);border-radius:16px;padding:26px;box-shadow:var(--shadow);max-width:560px;margin:0 auto; }
+  .panel h2{ font-size:19px;margin-bottom:6px; }
+  .panel .sub{ color:var(--muted);font-size:13px;margin-bottom:20px; }
+  .tabs{ display:flex;gap:8px;margin-bottom:20px; }
+  .tabs button{ flex:1;padding:10px;border:1px solid var(--line);background:#faf7f2;border-radius:9px;font-weight:600;color:var(--muted); }
+  .tabs button.on{ background:var(--brand);color:#fff;border-color:var(--brand); }
+  .profile{ display:flex;flex-direction:column;gap:0; }
+  .profile .li{ display:flex;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--line);font-size:14px; }
+  .profile .li span{ color:var(--muted); }
+  .adv{ margin-top:24px;border-top:1px dashed var(--line);padding-top:18px; }
+  .adv summary{ cursor:pointer;font-weight:600;color:var(--brand-d);font-size:14px; }
+  .note{ background:#fdeee7;border-radius:9px;padding:11px 13px;font-size:12.5px;color:#a15c37;line-height:1.6;margin:12px 0; }
+
+  .drawer{ position:fixed;top:0;right:-360px;width:340px;height:100%;background:#fff;box-shadow:-6px 0 30px rgba(0,0,0,.15);z-index:200;transition:.25s;padding:22px; }
+  .drawer.on{ right:0; }
+  .toast{ position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:11px 20px;border-radius:24px;font-size:13.5px;z-index:300;box-shadow:0 8px 24px rgba(0,0,0,.25);opacity:0;transition:.25s;pointer-events:none; }
+  .toast.on{ opacity:1; }
+  .toast.err{ background:var(--bad);} .toast.ok{ background:var(--ok);}
+  .guard{ text-align:center;padding:70px 20px; }
+  .guard .big{ font-size:46px;margin-bottom:14px; }
+  @media(max-width:820px){ .chat{ grid-template-columns:1fr;height:auto;} .side{ display:none;} .nav button{ padding:8px 9px;font-size:13px;} .logo small{ display:none;} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="topbar">
+    <div class="logo"><span class="dot">♨</span>厨思 <small>ChefMind</small></div>
+    <nav class="nav">
+      <button data-v="recipes" class="on">菜谱</button>
+      <button data-v="chef">AI厨师</button>
+      <button data-v="me">我的</button>
+    </nav>
+    <div class="spacer"></div>
+    <div class="health"><i id="hdot"></i><span id="htxt">检测中…</span></div>
+    <button class="btn ghost sm" id="cfgBtn">服务地址</button>
+    <div id="userArea"></div>
+  </div>
+</header>
+
+<main>
+  <section class="view on" id="v-recipes">
+    <div class="filters">
+      <div class="f"><label>省份</label><select id="fProv"><option value="">全部省份</option></select></div>
+      <div class="f"><label>菜系</label><select id="fCat"><option value="">全部菜系</option></select></div>
+      <div class="grow"><label>搜索菜名</label><input id="fKw" placeholder="例如：烩面、红烧…"></div>
+      <button class="btn" id="fGo">查询</button>
+      <button class="btn ghost" id="fReset">重置</button>
+    </div>
+    <div id="rlist"></div>
+    <div class="pager" id="rpage"></div>
+  </section>
+
+  <section class="view" id="v-chef">
+    <div id="chefGuard" class="guard" style="display:none">
+      <div class="big">🔒</div>
+      <p style="margin-bottom:16px;color:var(--muted)">AI 智能厨师需要先登录才能对话与查看历史记录。</p>
+      <button class="btn" onclick="go('me')">前往登录 / 注册</button>
+    </div>
+    <div class="chat" id="chatWrap">
+      <div class="chatMain">
+        <div class="chatHead">
+          <div class="ai">AI</div>
+          <div><b>AI 智能厨师</b><div style="font-size:12px;color:var(--muted)">问问菜名、做法、食材或河南菜</div></div>
+        </div>
+        <div class="msgs" id="msgs"></div>
+        <div class="chatInput">
+          <textarea id="cIn" placeholder="输入你的问题，Enter 发送 / Shift+Enter 换行"></textarea>
+          <button class="btn" id="cSend" style="align-self:flex-end;height:46px;padding:0 22px">发送</button>
+        </div>
+      </div>
+      <div class="side">
+        <h4>历史对话 <button class="btn ghost sm" id="clrHist">清空记忆</button></h4>
+        <div class="list" id="hlist"><div class="empty" style="padding:30px 10px">暂无历史</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="view" id="v-me"><div id="meWrap"></div></section>
+</main>
+
+<div class="mask" id="mask"><div class="modal"><button class="mclose" onclick="closeModal()">×</button><div id="modalBody"></div></div></div>
+
+<div class="drawer" id="drawer">
+  <h2 style="font-size:18px;margin-bottom:18px">服务地址设置</h2>
+  <div class="field"><label>Base URL（后端主机）</label><input id="baseUrl" placeholder="http://localhost:8000"></div>
+  <div class="note">所有接口路径为相对 Base URL，例如菜谱列表会请求 {BaseURL}/api/v1/recipes。需后端已开启 CORS。</div>
+  <div class="field"><label>手动粘贴 Access Token（高级）</label><textarea id="tokenBox" placeholder="eyJhbGci..." style="height:80px"></textarea></div>
+  <button class="btn block" id="saveCfg">保存设置</button>
+  <button class="btn ghost block" style="margin-top:10px" onclick="document.getElementById('drawer').classList.remove('on')">关闭</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const KEY='chefmind';
+const store={
+  get base(){ return localStorage.getItem(KEY+'_base')||'http://localhost:8000'; },
+  set base(v){ localStorage.setItem(KEY+'_base',v); },
+  get at(){ return localStorage.getItem(KEY+'_at')||''; },
+  get rt(){ return localStorage.getItem(KEY+'_rt')||''; },
+  set at(v){ v?localStorage.setItem(KEY+'_at',v):localStorage.removeItem(KEY+'_at'); },
+  set rt(v){ v?localStorage.setItem(KEY+'_rt',v):localStorage.removeItem(KEY+'_rt'); },
+  user(){ try{return JSON.parse(localStorage.getItem(KEY+'_user')||'null')}catch(e){return null} },
+  setUser(u){ u?localStorage.setItem(KEY+'_user',JSON.stringify(u)):localStorage.removeItem(KEY+'_user'); },
+  clear(){ this.at=''; this.rt=''; this.setUser(null); }
+};
+let U=null;
+function toast(msg,type){ const t=document.getElementById('toast'); t.textContent=msg; t.className='toast on'+(type?' '+type:''); clearTimeout(t._t); t._t=setTimeout(()=>t.className='toast',2600); }
+function esc(s){ return (s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+async function api(path,opt={}){
+  const url=store.base.replace(/\/$/,'')+path;
+  opt.headers=Object.assign({},opt.headers||{});
+  if(opt.auth!==false && store.at) opt.headers['Authorization']='Bearer '+store.at;
+  if(opt.json!==undefined){ opt.headers['Content-Type']='application/json'; opt.body=JSON.stringify(opt.json); }
+  if(opt.form){ opt.headers['Content-Type']='application/x-www-form-urlencoded'; opt.body=new URLSearchParams(opt.form).toString(); }
+  if(opt.method===undefined && opt.json===undefined && opt.form===undefined) opt.method='GET';
+  return await fetch(url,Object.assign({method:'GET'},opt));
+}
+async function apiJson(path,opt){ const r=await api(path,opt); let d=null; try{ d=await r.json(); }catch(e){ try{ d=await r.text(); }catch(_){} } return {status:r.status,data:d}; }
+
+let refreshing=false;
+async function tryRefresh(){
+  if(!store.rt||refreshing) return false;
+  refreshing=true;
+  try{
+    const {status,data}=await apiJson('/api/v1/auth/refresh',{method:'POST',json:{refresh_token:store.rt},auth:false});
+    if(status===200&&data&&data.access_token){ store.at=data.access_token; store.rt=data.refresh_token; store.setUser(data.user); U=data.user; renderUser(); return true; }
+    store.clear(); U=null; renderUser(); return false;
+  }catch(e){ return false; }finally{ refreshing=false; }
+}
+async function apiAuth(path,opt){
+  let r=await api(path,opt);
+  if(r.status===401 && store.rt){ if(await tryRefresh()){ r=await api(path,opt); } }
+  return r;
+}
+
+function go(v){
+  document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+  document.querySelectorAll('.view').forEach(s=>s.classList.remove('on'));
+  document.getElementById('v-'+v).classList.add('on');
+  if(v==='recipes'){ rp.page=1; loadRecipes(); }
+  if(v==='chef') enterChef();
+  if(v==='me') renderMe();
+}
+document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>go(b.dataset.v));
+
+async function checkHealth(){
+  const dot=document.getElementById('hdot'),txt=document.getElementById('htxt');
+  try{
+    const r=await api('/health',{auth:false}); const d=await r.json();
+    if(r.status===200&&d.status==='ok'){ dot.className='ok'; txt.textContent='服务正常'; }
+    else{ dot.className='warn'; txt.textContent='服务异常'; }
+  }catch(e){ dot.className='bad'; txt.textContent='无法连接'; }
+}
+
+function renderUser(){
+  const el=document.getElementById('userArea'); U=store.user();
+  if(U&&store.at){
+    const name=U.nickname||U.username||('用户'+U.id);
+    const ini=name.slice(0,1).toUpperCase();
+    el.innerHTML='<div class="userchip"><span class="av">'+esc(ini)+'</span>'+esc(name)+' <button class="btn ghost sm" onclick="logout()" style="margin-left:4px">退出</button></div>';
+  }else{
+    el.innerHTML='<button class="btn sm" onclick="go(\'me\')">登录 / 注册</button>';
+  }
+}
+async function logout(){
+  try{ await apiAuth('/api/v1/auth/logout',{method:'POST'}); }catch(e){}
+  store.clear(); U=null; renderUser(); go('me'); toast('已退出登录');
+}
+
+let rp={page:1,page_size:20,total:0};
+async function initFilters(){
+  const {status,data}=await apiJson('/api/v1/provinces',{auth:false});
+  if(status===200&&Array.isArray(data)){ const s=document.getElementById('fProv'); s.innerHTML='<option value="">全部省份</option>'+data.map(p=>'<option>'+esc(p)+'</option>').join(''); }
+}
+async function loadCats(){
+  const prov=document.getElementById('fProv').value;
+  const c=await api('/api/v1/categories'+(prov?'?province='+encodeURIComponent(prov):''),{auth:false});
+  const cats=await c.json();
+  const s=document.getElementById('fCat');
+  s.innerHTML='<option value="">全部菜系</option>'+(Array.isArray(cats)?cats.map(x=>'<option value="'+x.id+'">'+esc(x.name)+'</option>').join(''):'');
+}
+async function loadRecipes(){
+  const box=document.getElementById('rlist');
+  box.innerHTML='<div class="skel"><span class="spin"></span>加载菜谱…</div>';
+  const prov=document.getElementById('fProv').value, cat=document.getElementById('fCat').value, kw=document.getElementById('fKw').value.trim();
+  const q=new URLSearchParams({page:rp.page,page_size:rp.page_size});
+  if(prov) q.set('province',prov); if(cat) q.set('category_id',cat); if(kw) q.set('keyword',kw);
+  const r=await api('/api/v1/recipes?'+q.toString(),{auth:false});
+  if(!r.ok){ box.innerHTML='<div class="empty"><div class="big">⚠</div>无法加载菜谱（'+r.status+'）</div>'; return; }
+  const d=await r.json(); rp.total=d.total;
+  const items=d.items||[];
+  if(!items.length){ box.innerHTML='<div class="empty"><div class="big">🍽</div>没有找到匹配的菜谱</div>'; document.getElementById('rpage').innerHTML=''; return; }
+  box.innerHTML='<div class="grid">'+items.map(x=>{
+    const img=x.image_url?'style="background-image:url(\''+esc(x.image_url)+'\')"':'';
+    const ph=x.image_url?'':'🥘';
+    return '<div class="rcard" onclick="openRecipe(\''+esc(x.id)+'\')">'+
+      '<div class="img" '+img+'>'+ph+'</div>'+
+      '<div class="bd"><div class="nm">'+esc(x.name)+'</div>'+
+      '<div><span class="tag p">'+esc(x.province||'')+'</span><span class="tag">'+esc(x.category_name||'')+'</span></div>'+
+      '<div class="ds" style="margin-top:7px">'+esc(x.description||'暂无简介')+'</div></div></div>';
+  }).join('')+'</div>';
+  renderPager();
+}
+function renderPager(){
+  const pages=Math.max(1,Math.ceil(rp.total/rp.page_size));
+  document.getElementById('rpage').innerHTML='共 '+rp.total+' 道 · 第 '+rp.page+'/'+pages+' 页'+
+    ' <button class="btn ghost sm" '+(rp.page<=1?'disabled':'')+' onclick="rp.page--;loadRecipes()">← 上一页</button>'+
+    ' <button class="btn ghost sm" '+(rp.page>=pages?'disabled':'')+' onclick="rp.page++;loadRecipes()">下一页 →</button>';
+}
+async function openRecipe(id){
+  const mb=document.getElementById('modalBody'); mb.innerHTML='<div class="skel" style="padding:60px"><span class="spin"></span>加载详情…</div>';
+  document.getElementById('mask').classList.add('on');
+  const r=await api('/api/v1/recipes/'+encodeURIComponent(id),{auth:false});
+  if(!r.ok){ const e=await r.json().catch(()=>({})); mb.innerHTML='<div class="mbody"><h2>加载失败</h2><p class="desc">'+esc(e.detail||('HTTP '+r.status))+'</p></div>'; return; }
+  const d=await r.json();
+  const img=d.image_url?'style="background-image:url(\''+esc(d.image_url)+'\')"':'';
+  let ingHtml='';
+  if(Array.isArray(d.ingredients)&&d.ingredients.length){
+    ingHtml='<h3>食材用料</h3><div class="ing">'+d.ingredients.map(g=>{
+      const k=Object.keys(g)[0]; return '<div class="g"><b>'+esc(k)+'</b><ul>'+(g[k]||[]).map(it=>'<li>'+esc(it)+'</li>').join('')+'</ul></div>';
+    }).join('')+'</div>';
+  }
+  let stepHtml='';
+  if(d.instructions){
+    const segs=d.instructions.split(/\n\s*\n/).map(s=>s.trim()).filter(Boolean);
+    stepHtml='<h3>制作步骤</h3><div class="steps">'+(segs.length?segs.map(s=>'<p>'+esc(s)+'</p>').join(''):'<p>'+esc(d.instructions)+'</p>')+'</div>';
+  }
+  mb.innerHTML='<div class="mimg" '+img+'>'+(d.image_url?'':'🥘')+'</div>'+
+    '<div class="mbody">'+
+      '<h2>'+esc(d.name)+'</h2>'+
+      '<div class="meta"><span class="tag p">'+esc(d.province||'')+'</span><span class="tag">'+esc(d.category_name||'')+'</span>'+(d.created_at?'<span>入库 '+esc(d.created_at).slice(0,10)+'</span>':'')+'</div>'+
+      (d.description?'<div class="desc">'+esc(d.description)+'</div>':'')+
+      ingHtml+stepHtml+
+      ((!d.ingredients||!d.ingredients.length)&&!d.instructions?'<div class="note">该菜谱暂无详细用料或步骤数据。</div>':'')+
+    '</div>';
+}
+function closeModal(){ document.getElementById('mask').classList.remove('on'); }
+document.getElementById('mask').onclick=e=>{ if(e.target.id==='mask') closeModal(); };
+
+document.getElementById('fProv').onchange=()=>{ loadCats(); rp.page=1; loadRecipes(); };
+document.getElementById('fCat').onchange=()=>{ rp.page=1; loadRecipes(); };
+document.getElementById('fKw').onkeydown=e=>{ if(e.key==='Enter'){ rp.page=1; loadRecipes(); } };
+document.getElementById('fGo').onclick=()=>{ rp.page=1; loadRecipes(); };
+document.getElementById('fReset').onclick=()=>{ document.getElementById('fProv').value=''; document.getElementById('fKw').value=''; loadCats(); rp.page=1; loadRecipes(); };
+
+let histBefore=null;
+function enterChef(){
+  const locked=!(U&&store.at);
+  document.getElementById('chefGuard').style.display=locked?'block':'none';
+  document.getElementById('chatWrap').style.display=locked?'none':'grid';
+  if(!locked){ if(!document.getElementById('msgs').children.length) welcome(); loadHistory(true); }
+}
+function welcome(){
+  document.getElementById('msgs').innerHTML='<div class="msg ai"><div class="ic">AI</div><div class="bub">你好，我是厨思 AI 智能厨师。你可以问我某道菜怎么做、某种食材怎么处理，或推荐河南菜。我会参考菜谱知识库为你解答。</div></div>';
+}
+function addMsg(role,text){
+  const m=document.getElementById('msgs');
+  const div=document.createElement('div'); div.className='msg '+(role==='me'?'me':'ai');
+  div.innerHTML='<div class="ic">'+(role==='me'?'我':'AI')+'</div><div class="bub"></div>';
+  div.querySelector('.bub').textContent=text; m.appendChild(div); m.scrollTop=m.scrollHeight; return div;
+}
+async function sendChat(){
+  const inp=document.getElementById('cIn'); const text=inp.value.trim(); if(!text) return;
+  inp.value='';
+  addMsg('me',text);
+  const aiDiv=addMsg('ai','');
+  const bub=aiDiv.querySelector('.bub'); bub.innerHTML='<span class="spin"></span>';
+  document.getElementById('cSend').disabled=true;
+  let acc='',finalContent='';
+  function handleEvent(block){
+    let ev='message',data='';
+    block.split('\n').forEach(line=>{
+      if(line.startsWith('event:')) ev=line.slice(6).trim();
+      else if(line.startsWith('data:')) data+=line.slice(5).trim();
+    });
+    if(!data) return;
+    let obj; try{ obj=JSON.parse(data); }catch(e){ return; }
+    if(ev==='token'){ acc+=obj.content||''; bub.textContent=acc; document.getElementById('msgs').scrollTop=1e6; }
+    else if(ev==='meta'){ showIntent(aiDiv,obj); }
+    else if(ev==='done'){ if(obj.content!=null&&obj.content!==''){ bub.textContent=obj.content; } else if(!acc){ bub.textContent='（无回复内容）'; } finalContent=obj.content||acc; loadHistory(true); }
+    else if(ev==='error'){ bub.textContent='请求出错：'+(obj.detail||'智能体调用失败'); }
+  }
+  try{
+    const r=await apiAuth('/api/v1/chef/chat/stream',{method:'POST',json:{message:text}});
+    if(r.status===401){ bub.textContent='登录已过期，请重新登录。'; document.getElementById('cSend').disabled=false; logout(); return; }
+    if(!r.ok||!r.body){ let e={}; try{e=await r.json()}catch(_){} bub.textContent='请求失败：'+(e.detail||('HTTP '+r.status)); document.getElementById('cSend').disabled=false; return; }
+    const reader=r.body.getReader(); const dec=new TextDecoder(); let buf='';
+    while(true){
+      const {value,done}=await reader.read(); if(done) break;
+      buf+=dec.decode(value,{stream:true});
+      let idx;
+      while((idx=buf.indexOf('\n\n'))>=0){ const block=buf.slice(0,idx); buf=buf.slice(idx+2); handleEvent(block); }
+    }
+    if(buf.trim()) handleEvent(buf);
+    if(!finalContent&&acc) bub.textContent=acc;
+  }catch(e){ bub.textContent='网络错误：'+e.message; }
+  document.getElementById('cSend').disabled=false;
+  document.getElementById('msgs').scrollTop=1e6;
+}
+function showIntent(div,meta){
+  const holder=div.querySelector('.bub');
+  holder.querySelector('.intent')?.remove(); holder.querySelector('.src')?.remove();
+  if(meta&&meta.intent&&meta.intent!=='unknown'){
+    const c=document.createElement('span'); c.className='intent '+(meta.intent==='chitchat'?'chitchat':''); c.textContent=(meta.intent==='recipe'?'菜谱推荐':'闲聊'); holder.appendChild(document.createTextNode(' ')); holder.appendChild(c);
+  }
+  if(meta&&meta.sources&&meta.sources.length){
+    const s=document.createElement('div'); s.className='src';
+    s.innerHTML='参考来源：'+meta.sources.map(x=>'<a onclick="openRecipe(\''+esc(x.recipe_id)+'\')">'+esc(x.name)+'('+x.score+')</a>').join('、');
+    holder.appendChild(s);
+  }
+  document.getElementById('msgs').scrollTop=1e6;
+}
+document.getElementById('cSend').onclick=sendChat;
+document.getElementById('cIn').onkeydown=e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendChat(); } };
+
+async function loadHistory(reset){
+  if(reset){ histBefore=null; document.getElementById('hlist').innerHTML='<div class="skel" style="padding:20px"><span class="spin"></span></div>'; }
+  const q=new URLSearchParams({limit:'20'}); if(histBefore) q.set('before',histBefore);
+  const r=await apiAuth('/api/v1/chef/chat/history?'+q.toString());
+  if(!r.ok){ const e=await r.json().catch(()=>({})); document.getElementById('hlist').innerHTML='<div class="empty" style="padding:20px">'+esc(e.detail||('加载失败 '+r.status))+'</div>'; return; }
+  const d=await r.json(); histBefore=d.next_before;
+  const list=document.getElementById('hlist');
+  if(reset) list.innerHTML='';
+  const old=list.querySelector('button'); if(old) old.remove();
+  if(!d.items||!d.items.length){ if(reset) list.innerHTML='<div class="empty" style="padding:20px">暂无历史</div>'; return; }
+  d.items.forEach(it=>{
+    const last=it.messages&&it.messages[it.messages.length-1];
+    const firstUser=(it.messages||[]).find(m=>m.role==='user');
+    const el=document.createElement('div'); el.className='hitem';
+    el.innerHTML='<div class="t">'+esc(it.ts||'').replace('T',' ').slice(0,16)+'</div><div class="x">'+esc(firstUser?firstUser.content:(last?last.content:''))+'</div>';
+    el.onclick=()=>renderHistoryMsgs(it);
+    list.appendChild(el);
+  });
+  if(d.has_more){ const more=document.createElement('button'); more.className='btn ghost sm block'; more.textContent='加载更多'; more.onclick=()=>loadHistory(false); list.appendChild(more); }
+}
+function renderHistoryMsgs(it){
+  document.getElementById('msgs').innerHTML='';
+  (it.messages||[]).forEach(m=>addMsg(m.role==='user'?'me':'ai',m.content));
+}
+document.getElementById('clrHist').onclick=async()=>{
+  if(!confirm('确定清空当前账号的对话记忆？此操作不可恢复。')) return;
+  const r=await apiAuth('/api/v1/chef/chat/history',{method:'DELETE'});
+  if(r.ok){ toast('已清空对话记忆','ok'); welcome(); loadHistory(true); }
+  else{ const e=await r.json().catch(()=>({})); toast(e.detail||('清空失败 '+r.status),'err'); }
+};
+
+function renderMe(){
+  const wrap=document.getElementById('meWrap');
+  if(U&&store.at){
+    const rows=[['用户 ID',U.id],['用户名',U.username],['邮箱',U.email],['昵称',U.nickname],['手机号',U.phone],['头像',U.avatar_url?'已设置':'未设置']];
+    wrap.innerHTML='<div class="panel">'+
+      '<h2>我的账号</h2><div class="sub">登录状态由服务端 JWT 校验（/api/v1/auth/me）</div>'+
+      '<div class="profile">'+rows.map(r=>'<div class="li"><span>'+r[0]+'</span><b>'+(r[1]==null?'—':esc(r[1]))+'</b></div>').join('')+'</div>'+
+      '<div style="display:flex;gap:10px;margin-top:20px">'+
+        '<button class="btn ghost" onclick="refreshToken()">刷新令牌</button>'+
+        '<button class="btn ghost" onclick="revalidate()">校验登录态</button>'+
+        '<button class="btn" onclick="logout()">退出登录</button>'+
+      '</div>'+
+      '<details class="adv"><summary>微信手机号绑定</summary><div style="margin-top:14px">'+
+        '<div class="note">已登录状态下，填入小程序 getPhoneNumber 返回的 phone_code 即可为本账号绑定手机号。</div>'+
+        '<div class="field"><label>phone_code</label><input id="wxPcBound" placeholder="071xyz456"></div>'+
+        '<button class="btn block" onclick="bindPhoneBound()">提交绑定</button>'+
+      '</div></details>'+
+    '</div>';
+  }else{
+    wrap.innerHTML='<div class="panel">'+
+      '<div class="tabs"><button class="on" id="tabL" onclick="loginTab(\'l\')">登录</button><button id="tabR" onclick="loginTab(\'r\')">注册</button></div>'+
+      '<div id="loginForm">'+
+        '<div class="field"><label>用户名 / 邮箱</label><input id="lgUser" placeholder="chef_user 或 user@example.com"></div>'+
+        '<div class="field"><label>密码</label><input id="lgPwd" type="password" placeholder="登录密码"></div>'+
+        '<button class="btn block" onclick="doLogin()">登录</button>'+
+      '</div>'+
+      '<div id="regForm" style="display:none">'+
+        '<div class="field"><label>用户名 *</label><input id="rgUser" placeholder="全局唯一"></div>'+
+        '<div class="field"><label>邮箱（可选）</label><input id="rgEmail" placeholder="user@example.com"></div>'+
+        '<div class="field"><label>密码 *</label><input id="rgPwd" type="password" placeholder="至少含字母与数字"></div>'+
+        '<button class="btn block" onclick="doRegister()">注册账号</button>'+
+        '<div class="note" style="margin-top:12px">注册成功后需再用用户名/邮箱 + 密码登录。微信注册用户请用下方微信登录入口。</div>'+
+      '</div>'+
+      '<details class="adv"><summary>微信 / 小程序登录（开发者入口）</summary><div style="margin-top:14px">'+
+        '<div class="note">用 wx.login 拿到的 code 静默登录；新用户会建档，若未绑手机号会返回绑定票据。</div>'+
+        '<div class="field"><label>微信 code *</label><input id="wxCode" placeholder="071abc123"></div>'+
+        '<div class="row"><div class="field"><label>昵称（新用户可选）</label><input id="wxNick" placeholder="小明"></div><div class="field"><label>头像URL（可选）</label><input id="wxAv" placeholder="https://..."></div></div>'+
+        '<button class="btn block" onclick="wechatLogin()">微信登录</button>'+
+        '<div id="wxBindBox" style="display:none;margin-top:14px;border-top:1px dashed var(--line);padding-top:14px">'+
+          '<div class="note">该微信账号未绑手机号，请填入 getPhoneNumber 的 phone_code 完成绑定（已自动携带 bind_ticket）。</div>'+
+          '<div class="field"><label>phone_code *</label><input id="wxPc" placeholder="071xyz456"></div>'+
+          '<button class="btn block" onclick="wechatBind()">绑定手机号并登录</button>'+
+        '</div>'+
+      '</div></details>'+
+    '</div>';
+  }
+}
+function loginTab(x){
+  document.getElementById('tabL').classList.toggle('on',x==='l');
+  document.getElementById('tabR').classList.toggle('on',x==='r');
+  document.getElementById('loginForm').style.display=x==='l'?'block':'none';
+  document.getElementById('regForm').style.display=x==='r'?'block':'none';
+}
+let curBindTicket='';
+function applyToken(d){ store.at=d.access_token; store.rt=d.refresh_token; store.setUser(d.user); U=d.user; renderUser(); }
+async function doLogin(){
+  const username=document.getElementById('lgUser').value.trim(), password=document.getElementById('lgPwd').value;
+  if(!username||!password) return toast('请填写用户名和密码','err');
+  const r=await api('/api/v1/auth/login',{method:'POST',form:{username,password},auth:false});
+  if(r.status===200){ const d=await r.json(); applyToken(d); toast('登录成功','ok'); renderMe(); go('chef'); }
+  else{ const e=await r.json().catch(()=>({})); toast(e.detail||('登录失败 '+r.status),'err'); }
+}
+async function doRegister(){
+  const username=document.getElementById('rgUser').value.trim(), email=document.getElementById('rgEmail').value.trim(), password=document.getElementById('rgPwd').value;
+  if(!username||!password) return toast('用户名和密码必填','err');
+  const body={username,password}; if(email) body.email=email;
+  const r=await api('/api/v1/auth/register',{method:'POST',json:body,auth:false});
+  if(r.status===201){ toast('注册成功，请登录','ok'); loginTab('l'); document.getElementById('lgUser').value=username; }
+  else{ const e=await r.json().catch(()=>({})); toast(e.detail||('注册失败 '+r.status),'err'); }
+}
+async function wechatLogin(){
+  const code=document.getElementById('wxCode').value.trim(); if(!code) return toast('请填写微信 code','err');
+  const body={code}; const nick=document.getElementById('wxNick').value.trim(), av=document.getElementById('wxAv').value.trim();
+  if(nick) body.nickname=nick; if(av) body.avatar_url=av;
+  const r=await api('/api/v1/auth/wechat/login',{method:'POST',json:body,auth:false});
+  if(!r.ok){ const e=await r.json().catch(()=>({})); toast(e.detail||('微信登录失败 '+r.status),'err'); return; }
+  const d=await r.json();
+  if(d.need_bind_phone){ curBindTicket=d.bind_ticket||''; applyToken(d); toast('需绑定手机号','err'); document.getElementById('wxBindBox').style.display='block'; }
+  else{ applyToken(d); toast('微信登录成功','ok'); renderMe(); go('chef'); }
+}
+async function wechatBind(){
+  const pc=document.getElementById('wxPc').value.trim(); if(!pc) return toast('请填写 phone_code','err');
+  const body={phone_code:pc}; if(curBindTicket) body.bind_ticket=curBindTicket;
+  const r=await apiAuth('/api/v1/auth/wechat/bind-phone',{method:'POST',json:body});
+  if(!r.ok){ const e=await r.json().catch(()=>({})); toast(e.detail||('绑定失败 '+r.status),'err'); return; }
+  const d=await r.json(); applyToken(d); toast('手机号绑定成功，已登录','ok'); renderMe(); go('chef');
+}
+async function bindPhoneBound(){
+  const pc=document.getElementById('wxPcBound').value.trim(); if(!pc) return toast('请填写 phone_code','err');
+  const r=await apiAuth('/api/v1/auth/wechat/bind-phone',{method:'POST',json:{phone_code:pc}});
+  if(r.ok){ const d=await r.json(); applyToken(d); toast('手机号绑定成功','ok'); renderMe(); }
+  else{ const e=await r.json().catch(()=>({})); toast(e.detail||('绑定失败 '+r.status),'err'); }
+}
+async function refreshToken(){
+  if(!store.rt) return toast('无刷新令牌','err');
+  const ok=await tryRefresh(); toast(ok?'令牌已刷新':'刷新失败，已退出',ok?'ok':'err'); renderMe();
+}
+async function revalidate(){
+  const r=await apiAuth('/api/v1/auth/me');
+  if(r.ok){ const d=await r.json(); store.setUser(d); U=d; renderUser(); renderMe(); toast('登录态有效：用户'+d.id,'ok'); }
+  else toast('登录态失效（'+r.status+'）','err');
+}
+
+document.getElementById('cfgBtn').onclick=()=>{ document.getElementById('baseUrl').value=store.base; document.getElementById('tokenBox').value=store.at; document.getElementById('drawer').classList.add('on'); };
+document.getElementById('saveCfg').onclick=()=>{
+  const b=document.getElementById('baseUrl').value.trim(); if(b) store.base=b;
+  const tk=document.getElementById('tokenBox').value.trim(); if(tk){ store.at=tk; }
+  document.getElementById('drawer').classList.remove('on');
+  toast('设置已保存','ok'); checkHealth(); renderUser(); initFilters(); loadCats(); rp.page=1; loadRecipes();
+};
+
+(async function(){
+  renderUser(); await checkHealth(); await initFilters(); await loadCats(); await loadRecipes();
+})();
+</script>
+</body>
+</html>
